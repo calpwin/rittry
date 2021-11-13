@@ -2,8 +2,7 @@ import { CustomMovableElementService } from './../services/custom-movable-elemen
 import { Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { removeCustomElementAction } from './reducer';
-import { map, mergeMap, switchMap } from 'rxjs/operators';
-import { CustomElementRepository } from '../repositories/custom-element.repository';
+import { map } from 'rxjs/operators';
 
 @Injectable()
 export class RemoveCustomElementEffects {
@@ -13,14 +12,12 @@ export class RemoveCustomElementEffects {
         ofType(removeCustomElementAction),
         map(({ element, fromStorage }) => {
           const movableEl = this._customMovableElementService.getElement(
-            element.uid
+            element.id
           );
 
           if (!movableEl) return element;
 
           this._customMovableElementService.removeElement(movableEl);
-
-          this._customElementRepository.removeElement(element.uid, fromStorage);
 
           return element;
         })
@@ -30,7 +27,6 @@ export class RemoveCustomElementEffects {
 
   constructor(
     private readonly actions$: Actions,
-    private readonly _customElementRepository: CustomElementRepository,
     private readonly _customMovableElementService: CustomMovableElementService
   ) {}
 }

@@ -1,9 +1,9 @@
-import { CustomElementModel } from './../models/custom-element.model';
 import Moveable from 'moveable';
+import { CustomElement } from '../rxjs/reducer';
 
 export class CustomMovableElement {
   constructor(
-    public readonly customElementModel: CustomElementModel,
+    public readonly customElementModel: CustomElement,
     public readonly movableElement: HTMLElement,
     public movable?: Moveable,
     closeBtnElement: HTMLElement | undefined = undefined

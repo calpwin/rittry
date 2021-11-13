@@ -1,55 +1,53 @@
 import {
   changeSpaceMediaSelector,
+  CustomElement,
   CustomElementsState,
   SpaceMedia,
 } from './../rxjs/reducer';
 import { Injectable } from '@angular/core';
-import { CustomElementModel } from '../models/custom-element.model';
 import { SpaceModel } from '../models/space.model';
-import { Store } from '@ngrx/store';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LocalStorageService {
   private readonly _localStorageKey: string = 'custom-elements';
-  private _media: string = SpaceMedia[SpaceMedia.Desktop];
 
-  constructor(private readonly _store: Store<CustomElementsState>) {
-    _store
-      .select(changeSpaceMediaSelector)
-      .subscribe((media) => (this._media = media));
-  }
+  constructor() {}
 
-  public saveSpaceModel(models: CustomElementModel[]) {
+  public saveSpaceModel(models: CustomElement[], media: string) {
     let spaceModel = this.getSpaceModel();
+
+    models = models.filter((x) => x.appendTo !== '<root/>');
 
     if (!spaceModel)
       spaceModel = new SpaceModel({
-        [this.getSpaceMediaSize(this._media)]: [],
+        [this.getSpaceMediaSize(media)]: [],
       });
 
-    spaceModel.spaces[this.getSpaceMediaSize(this._media)] = models;
+    spaceModel.spaces[this.getSpaceMediaSize(media)] = models;
 
     localStorage.setItem(this._localStorageKey, JSON.stringify(spaceModel));
   }
 
-  public getCurrentMediaElemetModels(): CustomElementModel[] | undefined {
+  public getCurrentMediaElemetModels(
+    media: string
+  ): CustomElement[] | undefined {
     const spaceModel = this.getSpaceModel();
 
     const mediaStrs = spaceModel?.spaces;
 
     if (!mediaStrs) return undefined;
 
-    let elements: CustomElementModel[] | undefined =
-      spaceModel?.spaces[this.getSpaceMediaSize(this._media)];
+    let elements: CustomElement[] | undefined =
+      spaceModel?.spaces[this.getSpaceMediaSize(media)];
 
     if (elements) return elements;
 
     const medias = Object.keys(mediaStrs)
       .map((x) => parseInt(x, 10))
-      .filter(x => x > parseInt(this.getSpaceMediaSize(this._media), 10))
-      .sort((a,b) => (a > b ? 1 : -1));
+      .filter((x) => x > parseInt(this.getSpaceMediaSize(media), 10))
+      .sort((a, b) => (a > b ? 1 : -1));
 
     for (let media of medias) {
       elements = spaceModel?.spaces[media + 'px'];

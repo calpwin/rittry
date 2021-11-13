@@ -1,24 +1,23 @@
-import { KeyValuePair } from './../models/key-value-pair';
+import { KeyValuePairModel } from '../models/key-value-pair.model';
 import {
   addUiElementSelector,
   spaceSelectElementAction,
   changeAttributeElementSelector,
-  CustomElementStyle,
   changeStyleElementSelector,
-  CustomElementAttribute,
   addOrUpdateElementStyle,
   addOrUpdateElementAttribute,
-  CustomElementStyleChange,
   SpaceMedia,
+  addCustomElementAction,
+  CustomElement,
+  elementsSelector,
+  lastElementStyleChangedSelector,
 } from '../rxjs/reducer';
 import { Injectable, Renderer2, RendererFactory2 } from '@angular/core';
 import { Store } from '@ngrx/store';
 import Moveable, { MoveableOptions, OnScale } from 'moveable';
 import { CustomMovableElement } from './custom-movable-element';
-import { CustomElementModel } from '../models/custom-element.model';
-import { CustomElementRepository } from '../repositories/custom-element.repository';
 import { LocalStorageService } from './local-storage.service';
-import { SpaceModel } from '../models/space.model';
+import { withLatestFrom } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root',
@@ -31,7 +30,6 @@ export class CustomMovableElementService {
   constructor(
     rendererFactory: RendererFactory2,
     private readonly _store: Store<any>,
-    private readonly _customelementRepository: CustomElementRepository,
     private readonly _localStorageService: LocalStorageService
   ) {
     this._renderer = rendererFactory.createRenderer(null, null);
@@ -40,39 +38,79 @@ export class CustomMovableElementService {
   public initialize() {
     this._store.select(addUiElementSelector).subscribe((el) => {
       if (el) {
-        const elModel = this._customelementRepository.getElement(el.uid);
-        this.createElement(elModel!);
+        this.createElement(el);
       }
     });
 
-    this._store.select(changeStyleElementSelector).subscribe((style) => {
-      if (style) this.changeElementStyles(style);
-    });
-
     this._store
-      .select(changeAttributeElementSelector)
-      .subscribe((attribute) => {
-        if (attribute) this.changeElementAttributes(attribute);
+      .select(lastElementStyleChangedSelector)
+      .pipe(withLatestFrom(this._store.select(elementsSelector)))
+      .subscribe(([style, els]) => {
+        if (!style || !els) return;
+
+        this.changeElementStyles({
+          el: els.find((x) => x.id === style.elId)!,
+          styles: style.changedStyles,
+        });
       });
+
+    // this._store.select(changeStyleElementSelector).subscribe((changes) => {
+    //   if (changes)
+    //     this.changeElementStyles({
+    //       el: changes.el,
+    //       styles: changes.changedStyles,
+    //     });
+    // });
+
+    this._store.select(changeAttributeElementSelector).subscribe((changes) => {
+      if (changes)
+        this.changeElementAttributes({
+          el: changes.el,
+          attributes: changes.changedAttributes,
+        });
+    });
   }
 
-  public recreateFromStorage(media: SpaceMedia | string) {
-    const elements = this._localStorageService.getCurrentMediaElemetModels();
+  public recreateFromStorage(media: string) {
+    if (!media || media === SpaceMedia[SpaceMedia.None]) return;
 
-    this._customelementRepository.addRootElement();
+    const elements =
+      this._localStorageService.getCurrentMediaElemetModels(media);
+
+    // this._customelementRepository.addRootElement();
+
+    this._store.dispatch(
+      addCustomElementAction(
+        new CustomElement(
+          '6945ef-ff6b-4671-bc5c-a4371a7743f6',
+          'rittry-layout',
+          '<root/>'
+        )
+      )
+    );
 
     if (!elements) return;
 
     elements.forEach((el) =>
-      this._customelementRepository.addElement(el)
+      this._store.dispatch(
+        addCustomElementAction(
+          new CustomElement(
+            el.id,
+            el.htmlCode,
+            el.appendTo,
+            el.styles,
+            el.attributes
+          )
+        )
+      )
     );
   }
 
-  public createElement(element: CustomElementModel) {
+  public createElement(element: CustomElement) {
     if (!element) return;
 
-    if (this._elements.has(element.uid)) {
-      console.log(`Already exists element with uid: ${element.uid}`);
+    if (this._elements.has(element.id)) {
+      console.log(`Already exists element with uid: ${element.id}`);
 
       return;
     }
@@ -93,44 +131,39 @@ export class CustomMovableElementService {
 
     appendToEl.append(appendEl);
 
-    this._renderer.setAttribute(appendEl, 'id', element.uid);
+    this._renderer.setAttribute(appendEl, 'id', element.id);
     this._renderer.addClass(appendEl, 'custom-element');
 
-    const elModel = this._customelementRepository.getElement(element.uid);
-
-    if (!elModel) {
-      return;
-    }
-
-    var styles = [{ name: 'position', value: 'absolute' }, ...elModel.styles];
+    var styles = [{ name: 'position', value: 'absolute' }, ...element.styles];
 
     styles.forEach((prop) => {
       this._renderer.setStyle(appendEl, prop.name, prop.value);
     });
 
     let movable: Moveable | undefined = undefined;
-    if (!element.isRootElement) {
+    if (!CustomElement.isRootElement(element)) {
       movable = this.makeMovable(appendToEl as HTMLElement, appendEl);
     }
 
     this._elements.set(
-      element.uid,
+      element.id,
       new CustomMovableElement(element, appendEl, movable)
     );
   }
 
-  public changeElementStyles(style: CustomElementStyleChange) {
-    const el = this._elements.get(style.uid);
+  public changeElementStyles(changes: {
+    el: CustomElement;
+    styles: KeyValuePairModel[];
+  }) {
+    const el = this._elements.get(changes.el.id);
 
     if (!el) return;
 
-    style.changedStyles.forEach((prop) => {
+    changes.styles.forEach((prop) => {
       this._renderer.setStyle(el.movableElement, prop.name, prop.value);
     });
 
-    const positionStyle = style.changedStyles.find(
-      (x) => x.name === 'position'
-    );
+    const positionStyle = changes.styles.find((x) => x.name === 'position');
 
     if (el.movable && positionStyle?.value === 'relative') {
       const container = el.movable.container as HTMLElement;
@@ -150,8 +183,8 @@ export class CustomMovableElementService {
 
       this._store.dispatch(
         addOrUpdateElementStyle({
-          uid: el.customElementModel.uid,
-          values: clearPositionStyles,
+          elId: el.customElementModel.id,
+          styles: clearPositionStyles,
         })
       );
     } else if (el.movable && positionStyle?.value === 'absolute') {
@@ -162,35 +195,48 @@ export class CustomMovableElementService {
     }
   }
 
-  public changeElementAttributes(attribute: CustomElementAttribute) {
-    const el = this._elements.get(attribute.uid);
+  public changeElementAttributes(changes: {
+    el: CustomElement;
+    attributes: KeyValuePairModel[];
+  }) {
+    const el = this._elements.get(changes.el.id);
 
     if (!el) return;
 
-    attribute.values.forEach((prop) => {
+    changes.attributes.forEach((prop) => {
       this._renderer.setAttribute(el.movableElement, prop.name, prop.value);
     });
   }
 
-  public addOrUpdateStyle(style: { uid: string; values: KeyValuePair[] }) {
-    this._store.dispatch(addOrUpdateElementStyle(style));
+  public addOrUpdateStyle(style: { id: string; values: KeyValuePairModel[] }) {
+    this._store.dispatch(
+      addOrUpdateElementStyle({ elId: style.id, styles: style.values })
+    );
   }
 
-  public addOrUpdateAttribute(attribute: CustomElementAttribute) {
-    this._store.dispatch(addOrUpdateElementAttribute(attribute));
+  public addOrUpdateAttribute(attribute: {
+    id: string;
+    values: KeyValuePairModel[];
+  }) {
+    this._store.dispatch(
+      addOrUpdateElementAttribute({
+        elId: attribute.id,
+        attributes: attribute.values,
+      })
+    );
   }
 
   public removeElement(element: CustomMovableElement) {
-    if (!this._elements.has(element.customElementModel.uid)) return;
+    if (!this._elements.has(element.customElementModel.id)) return;
 
-    let appendToEl = document.querySelector(
-      !element.customElementModel.isRootElement ? element.customElementModel.appendTo : '.append-custom-el-to'
-    );
+    let appendToEl = !CustomElement.isRootElement(element.customElementModel)
+      ? document.getElementById(element.customElementModel.appendTo)
+      : document.querySelector('.append-custom-el-to');
 
     element.movable?.destroy();
     this._renderer.removeChild(appendToEl, element.movableElement);
 
-    this._elements.delete(element.customElementModel.uid);
+    this._elements.delete(element.customElementModel.id);
     // this._customelementRepository.removeElement(element.customElementModel.uid);
   }
 
@@ -244,11 +290,11 @@ export class CustomMovableElementService {
     /* draggable */
     moveable
       .on('click', ({ target }) => {
-        const uid = target!.getAttribute('id');
+        const id = target!.getAttribute('id');
 
-        if (!uid) return;
+        if (!id) return;
 
-        const element = this.getElement(uid)!;
+        const element = this.getElement(id)!;
         this._store.dispatch(
           spaceSelectElementAction(element.customElementModel)
         );
@@ -275,11 +321,11 @@ export class CustomMovableElementService {
           // target!.style.left = `${left}px`;
           // target!.style.top = `${top}px`;
 
-          const uid = target!.getAttribute('id');
+          const id = target!.getAttribute('id');
 
-          if (uid) {
+          if (id) {
             this.addOrUpdateStyle({
-              uid,
+              id,
               values: [
                 { name: 'left', value: `${left}px` },
                 { name: 'top', value: `${top}px` },
@@ -304,10 +350,10 @@ export class CustomMovableElementService {
           // delta[0] && (target!.style.width = `${width}px`);
           // delta[1] && (target!.style.height = `${height}px`);
 
-          const uid = target!.getAttribute('id');
-          if (uid) {
+          const id = target!.getAttribute('id');
+          if (id) {
             this.addOrUpdateStyle({
-              uid,
+              id,
               values: [
                 { name: 'width', value: `${width}px` },
                 { name: 'height', value: `${height}px` },
@@ -339,10 +385,10 @@ export class CustomMovableElementService {
           // console.log('onScale scale', scale);
           // target!.style.transform = transform;
 
-          const uid = target!.getAttribute('id');
-          if (uid) {
+          const id = target!.getAttribute('id');
+          if (id) {
             this.addOrUpdateStyle({
-              uid,
+              id,
               values: [{ name: 'transform', value: transform }],
             });
           }
@@ -363,10 +409,10 @@ export class CustomMovableElementService {
           // console.log('onRotate', dist);
           // target!.style.transform = transform;
 
-          const uid = target!.getAttribute('id');
-          if (uid) {
+          const id = target!.getAttribute('id');
+          if (id) {
             this.addOrUpdateStyle({
-              uid,
+              id,
               values: [{ name: 'transform', value: transform }],
             });
           }

@@ -1,7 +1,8 @@
 import {
-  changedSpaceMediaAction,
   SpaceMedia,
   changingSpaceMediaAction,
+  addCustomElementAction,
+  selectedElementSelector,
 } from './../rxjs/reducer';
 import {
   AfterViewInit,
@@ -22,13 +23,10 @@ import {
   changeSpaceMediaSelector,
   CustomElement,
   CustomElementsState,
-  CustomElementStyle,
   removeCustomElementAction,
   uiElementEditorFeatureSelector,
 } from '../rxjs/reducer';
-import { KeyValuePair } from '../models/key-value-pair';
-import { CustomElementRepository } from '../repositories/custom-element.repository';
-import { CustomElementModel } from '../models/custom-element.model';
+import { KeyValuePairModel } from '../models/key-value-pair.model';
 
 @Component({
   selector: 'rittry-space',
@@ -51,9 +49,7 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     private signalRService: SignalRService,
     private readonly _renderer: Renderer2,
     private readonly _elementService: CustomMovableElementService,
-    private _store: Store<any>,
-    private readonly _state: State<CustomElementsState>,
-    private readonly _customElementRepository: CustomElementRepository
+    private _store: Store<any>
   ) {
     _elementService.initialize();
   }
@@ -84,24 +80,19 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     //   splitOptions
     // );
 
-    this._store.select(changeSpaceMediaSelector).subscribe((media) => {
-      this._elementService.recreateFromStorage(media);
-    });
-
     this._renderer.listen(this._mainSpace.nativeElement, 'click', () => {
-      this.onChangeSelectedElement(undefined);
+      this.сhangeSelectedElement(undefined);
     });
 
     this._store
-      .select(
-        createSelector(
-          uiElementEditorFeatureSelector,
-          (state: CustomElementsState) => state.selectedElement
-        )
-      )
-      .subscribe((selectedEl) => {
-        this.onChangeSelectedElement(selectedEl);
+      .select(selectedElementSelector)
+      .subscribe(selectedEl => {
+        this.сhangeSelectedElement(selectedEl);
       });
+
+    this._store.dispatch(
+      changingSpaceMediaAction({ media: SpaceMedia[SpaceMedia.Desktop] })
+    );
   }
 
   public changeSpaceSize(spaceMedia: string) {
@@ -245,8 +236,7 @@ export class SpaceComponent implements OnInit, AfterViewInit {
 
     this._store.dispatch(
       changingSpaceMediaAction({
-        fromMedia: this._customElementRepository.currentMedia,
-        toMedia: spaceMedia,
+        media: spaceMedia,
       })
     );
     // this._elementService.getAllElements().forEach((el) => {
@@ -254,7 +244,7 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     // });
   }
 
-  private onChangeSelectedElement(selectedEl: CustomElement | undefined) {
+  private сhangeSelectedElement(selectedEl: CustomElement | undefined) {
     if (this.selectedElement) {
       this._renderer.removeChild(
         this.selectedElement.customMovableElement.movableElement,
@@ -267,7 +257,7 @@ export class SpaceComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    const element = this._elementService.getElement(selectedEl.uid);
+    const element = this._elementService.getElement(selectedEl.id);
     if (!element) return;
 
     const closeBtnElement = this._renderer.createElement('div') as HTMLElement;
@@ -306,8 +296,8 @@ export class SpaceComponent implements OnInit, AfterViewInit {
 
     this._store.dispatch(
       addOrUpdateElementStyle({
-        uid: this.selectedElement.customMovableElement.customElementModel.uid,
-        values: [new KeyValuePair('position', newPosition)],
+        elId: this.selectedElement.customMovableElement.customElementModel.id,
+        styles: [new KeyValuePairModel('position', newPosition)],
       })
     );
 
@@ -315,11 +305,13 @@ export class SpaceComponent implements OnInit, AfterViewInit {
   }
 
   public addElement() {
-    this._customElementRepository.addElement(
-      new CustomElementModel(
-        'rittry-element',
-        Date.now().toString(),
-        'rt6945ef-ff6b-4671-bc5c-a4371a7743f6'
+    this._store.dispatch(
+      addCustomElementAction(
+        new CustomElement(
+          Date.now().toString(),
+          'rittry-element',
+          '6945ef-ff6b-4671-bc5c-a4371a7743f6'
+        )
       )
     );
   }

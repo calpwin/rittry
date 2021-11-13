@@ -6,52 +6,50 @@ import {
   on,
   props,
 } from '@ngrx/store';
-import { KeyValuePair } from '../models/key-value-pair';
+import { KeyValuePairModel } from '../models/key-value-pair.model';
 
 export class CustomElement {
   constructor(
+    public id: string,
     public htmlCode: string,
-    public uid: string,
-    public appendTo: string = '<root/>'
+    public appendTo: string = '<root/>',
+    public styles: KeyValuePairModel[] = [],
+    public attributes: KeyValuePairModel[] = []
   ) {}
-}
 
-export class CustomElementStyle {
-  constructor(
-    public readonly uid: string,
-    public values: KeyValuePair[] = []
-  ) {}
+  public static isRootElement(el: CustomElement) {
+    return el.appendTo === '<root/>';
+  }
 }
 
 export class CustomElementStyleChange {
   constructor(
-    public readonly uid: string,
-    public allStyles: KeyValuePair[],
-    public changedStyles: KeyValuePair[]
+    public readonly elId: string,
+    public changedStyles: KeyValuePairModel[]
   ) {}
 }
 
-export class CustomElementAttribute {
+export class CustomElementAttributeChange {
   constructor(
-    public readonly uid: string,
-    public values: KeyValuePair[] = []
+    public readonly elId: string,
+    public changedAttributes: KeyValuePairModel[]
   ) {}
 }
 
 export class CustomElementsState {
   constructor(
     public elements: CustomElement[],
-    public elementStyles: CustomElementStyle[],
-    public elementAttributes: CustomElementAttribute[],
     public currentSpaceMedia: string,
+    public lastAddedElement?: CustomElement,
     public lastElementStyleChanged?: CustomElementStyleChange,
-    public lastElementAttributeChanged?: CustomElementAttribute,
+    public lastElementAttributeChanged?: CustomElementAttributeChange,
     public selectedElement?: CustomElement,
     public currentSpaceElement?: CustomElement
   ) {}
 }
 
 export enum SpaceMedia {
+  None = 0,
   Desktop = 1,
   Laptop = 2,
   Tablet = 3,
@@ -60,9 +58,8 @@ export enum SpaceMedia {
 
 export const initialState: CustomElementsState = {
   elements: [],
-  elementStyles: [],
-  elementAttributes: [],
-  currentSpaceMedia: SpaceMedia[SpaceMedia.Desktop],
+  currentSpaceMedia: SpaceMedia[SpaceMedia.None],
+  lastAddedElement: undefined,
   lastElementStyleChanged: undefined,
   lastElementAttributeChanged: undefined,
   selectedElement: undefined,
@@ -81,12 +78,12 @@ export const removeCustomElementAction = createAction(
 
 export const addOrUpdateElementStyle = createAction(
   'Add or update custom element style',
-  props<CustomElementStyle>()
+  props<{ elId: string; styles: KeyValuePairModel[] }>()
 );
 
 export const addOrUpdateElementAttribute = createAction(
   'Add or update custom element attribute',
-  props<CustomElementAttribute>()
+  props<{ elId: string; attributes: KeyValuePairModel[] }>()
 );
 
 export const spaceSelectElementAction = createAction(
@@ -96,7 +93,7 @@ export const spaceSelectElementAction = createAction(
 
 export const changingSpaceMediaAction = createAction(
   'Start changing space media',
-  props<{ fromMedia: string; toMedia: string }>()
+  props<{ media: string }>()
 );
 
 export const changedSpaceMediaAction = createAction(
@@ -112,21 +109,49 @@ export const uiElementEditorFeatureSelector = createFeatureSelector<any, any>(
 
 export const addUiElementSelector = createSelector(
   uiElementEditorFeatureSelector,
-  (state: CustomElementsState) =>
-    state.elements.length > 0
-      ? state.elements[state.elements.length - 1]
-      : undefined
+  (state: CustomElementsState) => state.lastAddedElement
 );
 
-export const changeStyleElementSelector = createSelector(
+export const lastElementStyleChangedSelector = createSelector(
   uiElementEditorFeatureSelector,
   (state: CustomElementsState) => state.lastElementStyleChanged
 );
 
+export const elementsSelector = createSelector(
+  uiElementEditorFeatureSelector,
+  (state: CustomElementsState) => state.elements
+);
+
+export const changeStyleElementSelector =  createSelector(
+  lastElementStyleChangedSelector,
+  elementsSelector,
+  (style, els) => {
+    if (!style || !els) return undefined;
+
+    return {
+      el: els.find((x) => x.id === style.elId)!,
+      changedStyles: style.changedStyles,
+    };
+  }
+);
+
 export const changeAttributeElementSelector = createSelector(
   uiElementEditorFeatureSelector,
-  (state: CustomElementsState) => state.lastElementAttributeChanged
+  (state: CustomElementsState) => state.lastElementAttributeChanged,
+  (state: CustomElementsState, lastElementAttributeChanged) => {
+    if (!lastElementAttributeChanged) return undefined;
+
+    return {
+      el: state.elements.find((x) => x.id === lastElementAttributeChanged.elId)!,
+      changedAttributes: lastElementAttributeChanged.changedAttributes,
+    };
+  }
 );
+
+export const selectedElementSelector = createSelector(
+  uiElementEditorFeatureSelector,
+  (state: CustomElementsState) => state.selectedElement
+)
 
 export const changeSpaceMediaSelector = createSelector(
   uiElementEditorFeatureSelector,
@@ -141,11 +166,11 @@ export const customElementsReducer = createReducer(
     const elements = [...state.elements];
     elements.push(customElement);
 
-    return { ...state, elements: elements };
+    return { ...state, elements: elements, lastAddedElement: customElement };
   }),
   on(removeCustomElementAction, (state, { element }) => {
     const els = [...state.elements];
-    const findEl = els.find((x) => x.uid === element.uid);
+    const findEl = els.find((x) => x.id === element.id);
 
     if (findEl) {
       const index = els.indexOf(findEl);
@@ -158,16 +183,18 @@ export const customElementsReducer = createReducer(
     return { ...state, selectedElement: spaceSelectedElement };
   }),
   on(addOrUpdateElementStyle, (state, prop) => {
-    let elementStyle = state.elementStyles.find((x) => x.uid === prop.uid);
+    const element = state.elements.find((x) => x.id === prop.elId);
 
-    let elementStyles = [...state.elementStyles];
-    if (elementStyle) {
-      const index = elementStyles.indexOf(elementStyle);
-      elementStyles.splice(index, 1);
-    }
+    if (!element) return { ...state };
 
-    let currentStyles = [...(elementStyle?.values ?? [])];
-    prop.values.forEach((style) => {
+    var elements = [...state.elements];
+    var elIndex = elements.indexOf(element);
+    elements.splice(elIndex, 1);
+    const newEl = { ...element };
+    elements.push(newEl);
+
+    let currentStyles = [...(newEl.styles ?? [])];
+    prop.styles.forEach((style) => {
       const currentStyle = currentStyles.find((x) => x.name === style.name);
 
       if (currentStyle) {
@@ -176,46 +203,16 @@ export const customElementsReducer = createReducer(
       }
     });
 
-    const newElementStyle = {
-      uid: prop.uid,
-      values: [...(currentStyles ?? []), ...prop.values],
-    };
-
-    elementStyles.push(newElementStyle);
+    newEl.styles = [...currentStyles, ...prop.styles];
 
     return {
       ...state,
-      elementStyles,
-      lastElementStyleChanged: {
-        uid: prop.uid,
-        allStyles: newElementStyle.values,
-        changedStyles: prop.values,
-      },
+      elements,
+      lastElementStyleChanged: { elId: prop.elId, changedStyles: prop.styles }
     };
   }),
   on(addOrUpdateElementAttribute, (state, prop) => {
-    let elementAttribute = state.elementAttributes.find(
-      (x) => x.uid === prop.uid
-    );
-
-    let elementAttributes = [...state.elementAttributes];
-    if (elementAttribute) {
-      const index = elementAttributes.indexOf(elementAttribute);
-      elementAttributes.splice(index, 1);
-    }
-
-    const newElementAttribute = {
-      uid: prop.uid,
-      values: [...(elementAttribute?.values ?? []), ...prop.values],
-    };
-
-    elementAttributes.push(newElementAttribute);
-
-    return {
-      ...state,
-      elementAttributes,
-      lastElementAttributeChanged: newElementAttribute,
-    };
+    return { ...state };
   }),
   on(changedSpaceMediaAction, (state, prop) => {
     return {

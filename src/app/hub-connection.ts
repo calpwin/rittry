@@ -1,8 +1,7 @@
-import { CustomElementModel } from './models/custom-element.model';
-import { CustomElementRepository } from './repositories/custom-element.repository';
 import { Injectable } from '@angular/core';
 import * as signalR from '@aspnet/signalr'; // or from "@microsoft/signalr" if you are using a new library
 import { Store } from '@ngrx/store';
+import { addCustomElementAction, CustomElement } from './rxjs/reducer';
 
 @Injectable({
   providedIn: 'root',
@@ -12,7 +11,6 @@ export class SignalRService {
 
   constructor(
     private readonly _store: Store<any>,
-    private readonly _customElementRepository: CustomElementRepository
   ) {}
 
   public startConnection = () => {
@@ -27,11 +25,11 @@ export class SignalRService {
 
   public addTransferChartDataListener = () => {
     this.hubConnection.on('Send', (data) => {
-      const customElement = JSON.parse(data) as CustomElementModel;
+      const customElement = JSON.parse(data) as CustomElement;
 
       console.log('Ws get json: ', customElement);
 
-      this._customElementRepository.addElement(customElement);
+      this._store.dispatch(addCustomElementAction(customElement));
     });
   };
 }
