@@ -1,23 +1,8 @@
-import { KeyValuePairModel } from '../models/key-value-pair.model';
-import {
-  addUiElementSelector,
-  spaceSelectElementAction,
-  changeAttributeElementSelector,
-  changeStyleElementSelector,
-  addOrUpdateElementStyle,
-  addOrUpdateElementAttribute,
-  SpaceMedia,
-  addCustomElementAction,
-  CustomElement,
-  elementsSelector,
-  lastElementStyleChangedSelector,
-} from '../rxjs/reducer';
 import { Injectable, Renderer2, RendererFactory2 } from '@angular/core';
 import { Store } from '@ngrx/store';
 import Moveable, { MoveableOptions, OnScale } from 'moveable';
-import { CustomMovableElement } from './custom-movable-element';
+import { addOrUpdateElementStyleAction } from '../rxjs/actions';
 import { LocalStorageService } from './local-storage.service';
-import { withLatestFrom } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root',
@@ -25,7 +10,7 @@ import { withLatestFrom } from 'rxjs/operators';
 export class CustomMovableElementService {
   private readonly _renderer: Renderer2;
 
-  private readonly _elements: Map<string, CustomMovableElement> = new Map();
+  // private readonly _elements: Map<string, CustomMovableElement> = new Map();
 
   constructor(
     rendererFactory: RendererFactory2,
@@ -36,223 +21,152 @@ export class CustomMovableElementService {
   }
 
   public initialize() {
-    this._store.select(addUiElementSelector).subscribe((el) => {
-      if (el) {
-        this.createElement(el);
-      }
-    });
-
-    this._store
-      .select(lastElementStyleChangedSelector)
-      .pipe(withLatestFrom(this._store.select(elementsSelector)))
-      .subscribe(([style, els]) => {
-        if (!style || !els) return;
-
-        this.changeElementStyles({
-          el: els.find((x) => x.id === style.elId)!,
-          styles: style.changedStyles,
-        });
-      });
-
-    // this._store.select(changeStyleElementSelector).subscribe((changes) => {
-    //   if (changes)
+    // this._store
+    //   .select(addUiElementSelector)
+    //   .pipe(withLatestFrom(this._store.select(currentSpaceElementSelector)))
+    //   .subscribe(([el, speceEl]) => {
+    //     if (el) {
+    //       this.makeMovable(el, speceEl);
+    //     }
+    //   });
+    // this._store
+    //   .select(lastElementStyleChangedSelector)
+    //   .pipe(withLatestFrom(this._store.select(elementsSelector)))
+    //   .subscribe(([style, els]) => {
+    //     if (!style || !els) return;
     //     this.changeElementStyles({
+    //       el: els.find((x) => x.id === style.elId)!,
+    //       styles: style.changedStyles,
+    //     });
+    //   });
+    // this._store.select(changeAttributeElementSelector).subscribe((changes) => {
+    //   if (changes)
+    //     this.changeElementAttributes({
     //       el: changes.el,
-    //       styles: changes.changedStyles,
+    //       attributes: changes.changedAttributes,
     //     });
     // });
-
-    this._store.select(changeAttributeElementSelector).subscribe((changes) => {
-      if (changes)
-        this.changeElementAttributes({
-          el: changes.el,
-          attributes: changes.changedAttributes,
-        });
-    });
   }
 
-  public recreateFromStorage(media: string) {
-    if (!media || media === SpaceMedia[SpaceMedia.None]) return;
+  // public makeMovable(parentEl: HTMLElement, el: HTMLElement) {
 
-    const elements =
-      this._localStorageService.getCurrentMediaElemetModels(media);
+  //   // let movable: Moveable | undefined = undefined;
+  //   // if (
+  //   //   !CustomElement.isRootElement(el) &&
+  //   //   (!currentSpaceEl ||
+  //   //   element.appendTo === currentSpaceEl.id)
+  //   // ) {
+  //   //   movable = this.makeMovable(
+  //   //     parentEl,
+  //   //     el,
+  //   //     {
+  //   //       draggable: !styles.find(x => x.name == 'position' && x.value == 'relative')
+  //   //     });
+  //   // }
+  // }
 
-    // this._customelementRepository.addRootElement();
+  // public changeElementStyles(changes: {
+  //   el: CustomElement;
+  //   styles: KeyValuePairModel[];
+  // }) {
+  //   const el = this._elements.get(changes.el.id);
 
-    this._store.dispatch(
-      addCustomElementAction(
-        new CustomElement(
-          '6945ef-ff6b-4671-bc5c-a4371a7743f6',
-          'rittry-layout',
-          '<root/>'
-        )
-      )
-    );
+  //   if (!el) return;
 
-    if (!elements) return;
+  //   changes.styles.forEach((prop) => {
+  //     this._renderer.setStyle(el.movableElement, prop.name, prop.value);
+  //   });
 
-    elements.forEach((el) =>
-      this._store.dispatch(
-        addCustomElementAction(
-          new CustomElement(
-            el.id,
-            el.htmlCode,
-            el.appendTo,
-            el.styles,
-            el.attributes
-          )
-        )
-      )
-    );
-  }
+  //   const positionStyle = changes.styles.find((x) => x.name === 'position');
 
-  public createElement(element: CustomElement) {
-    if (!element) return;
+  //   if (el.movable && positionStyle?.value === 'relative') {
+  //     const container = el.movable.container as HTMLElement;
+  //     el.movable.destroy();
 
-    if (this._elements.has(element.id)) {
-      console.log(`Already exists element with uid: ${element.id}`);
+  //     const clearPositionStyles = [
+  //       { name: 'left', value: '0' },
+  //       { name: 'top', value: '0' },
+  //     ];
+  //     clearPositionStyles.forEach((prop) => {
+  //       this._renderer.setStyle(el.movableElement, prop.name, prop.value);
+  //     });
 
-      return;
-    }
+  //     el.movable = this.makeMovable(container, el.movableElement, {
+  //       draggable: false,
+  //     });
 
-    const appendEl = document.createElement(element.htmlCode);
+  //     this._store.dispatch(
+  //       addOrUpdateElementStyleAction({
+  //         elId: el.customElementModel.id,
+  //         styles: clearPositionStyles,
+  //       })
+  //     );
+  //   } else if (el.movable && positionStyle?.value === 'absolute') {
+  //     const container = el.movable.container as HTMLElement;
+  //     el.movable.destroy();
 
-    let appendToEl;
-    if (element.appendTo === '<root/>') {
-      appendToEl = document.querySelector('.append-custom-el-to');
-    } else {
-      appendToEl = this._elements.get(element.appendTo)?.movableElement;
-    }
+  //     el.movable = this.makeMovable(container, el.movableElement);
+  //   }
+  // }
 
-    if (!appendToEl) {
-      console.log('Append element to not found will set to root space');
-      return;
-    }
+  // public changeElementAttributes(changes: {
+  //   el: CustomElement;
+  //   attributes: KeyValuePairModel[];
+  // }) {
+  //   const el = this._elements.get(changes.el.id);
 
-    appendToEl.append(appendEl);
+  //   if (!el) return;
 
-    this._renderer.setAttribute(appendEl, 'id', element.id);
-    this._renderer.addClass(appendEl, 'custom-element');
+  //   changes.attributes.forEach((prop) => {
+  //     this._renderer.setAttribute(el.movableElement, prop.name, prop.value);
+  //   });
+  // }
 
-    var styles = [{ name: 'position', value: 'absolute' }, ...element.styles];
+  // public addOrUpdateStyle(style: { id: string; values: KeyValuePairModel[] }) {
+  //   this._store.dispatch(
+  //     addOrUpdateElementStyleAction({ elId: style.id, styles: style.values })
+  //   );
+  // }
 
-    styles.forEach((prop) => {
-      this._renderer.setStyle(appendEl, prop.name, prop.value);
-    });
+  // public addOrUpdateAttribute(attribute: {
+  //   id: string;
+  //   values: KeyValuePairModel[];
+  // }) {
+  //   this._store.dispatch(
+  //     addOrUpdateElementAttribute({
+  //       elId: attribute.id,
+  //       attributes: attribute.values,
+  //     })
+  //   );
+  // }
 
-    let movable: Moveable | undefined = undefined;
-    if (!CustomElement.isRootElement(element)) {
-      movable = this.makeMovable(appendToEl as HTMLElement, appendEl);
-    }
+  // public removeElement(element: CustomMovableElement) {
+  //   if (!this._elements.has(element.customElementModel.id)) return;
 
-    this._elements.set(
-      element.id,
-      new CustomMovableElement(element, appendEl, movable)
-    );
-  }
+  //   let appendToEl = !CustomElement.isRootElement(element.customElementModel)
+  //     ? document.getElementById(element.customElementModel.appendTo)
+  //     : document.querySelector('.append-custom-el-to');
 
-  public changeElementStyles(changes: {
-    el: CustomElement;
-    styles: KeyValuePairModel[];
-  }) {
-    const el = this._elements.get(changes.el.id);
+  //   element.movable?.destroy();
+  //   this._renderer.removeChild(appendToEl, element.movableElement);
 
-    if (!el) return;
+  //   this._elements.delete(element.customElementModel.id);
+  //   // this._customelementRepository.removeElement(element.customElementModel.uid);
+  // }
 
-    changes.styles.forEach((prop) => {
-      this._renderer.setStyle(el.movableElement, prop.name, prop.value);
-    });
+  // public getElement(uid: string) {
+  //   if (!this._elements.has(uid)) return undefined;
 
-    const positionStyle = changes.styles.find((x) => x.name === 'position');
+  //   return this._elements.get(uid);
+  // }
 
-    if (el.movable && positionStyle?.value === 'relative') {
-      const container = el.movable.container as HTMLElement;
-      el.movable.destroy();
+  // public getAllElements() {
+  //   return this._elements;
+  // }
 
-      const clearPositionStyles = [
-        { name: 'left', value: '0' },
-        { name: 'top', value: '0' },
-      ];
-      clearPositionStyles.forEach((prop) => {
-        this._renderer.setStyle(el.movableElement, prop.name, prop.value);
-      });
+  // public addCloseBtn(el: HTMLElement) {}
 
-      el.movable = this.makeMovable(container, el.movableElement, {
-        draggable: false,
-      });
-
-      this._store.dispatch(
-        addOrUpdateElementStyle({
-          elId: el.customElementModel.id,
-          styles: clearPositionStyles,
-        })
-      );
-    } else if (el.movable && positionStyle?.value === 'absolute') {
-      const container = el.movable.container as HTMLElement;
-      el.movable.destroy();
-
-      el.movable = this.makeMovable(container, el.movableElement);
-    }
-  }
-
-  public changeElementAttributes(changes: {
-    el: CustomElement;
-    attributes: KeyValuePairModel[];
-  }) {
-    const el = this._elements.get(changes.el.id);
-
-    if (!el) return;
-
-    changes.attributes.forEach((prop) => {
-      this._renderer.setAttribute(el.movableElement, prop.name, prop.value);
-    });
-  }
-
-  public addOrUpdateStyle(style: { id: string; values: KeyValuePairModel[] }) {
-    this._store.dispatch(
-      addOrUpdateElementStyle({ elId: style.id, styles: style.values })
-    );
-  }
-
-  public addOrUpdateAttribute(attribute: {
-    id: string;
-    values: KeyValuePairModel[];
-  }) {
-    this._store.dispatch(
-      addOrUpdateElementAttribute({
-        elId: attribute.id,
-        attributes: attribute.values,
-      })
-    );
-  }
-
-  public removeElement(element: CustomMovableElement) {
-    if (!this._elements.has(element.customElementModel.id)) return;
-
-    let appendToEl = !CustomElement.isRootElement(element.customElementModel)
-      ? document.getElementById(element.customElementModel.appendTo)
-      : document.querySelector('.append-custom-el-to');
-
-    element.movable?.destroy();
-    this._renderer.removeChild(appendToEl, element.movableElement);
-
-    this._elements.delete(element.customElementModel.id);
-    // this._customelementRepository.removeElement(element.customElementModel.uid);
-  }
-
-  public getElement(uid: string) {
-    if (!this._elements.has(uid)) return undefined;
-
-    return this._elements.get(uid);
-  }
-
-  public getAllElements() {
-    return this._elements;
-  }
-
-  public addCloseBtn(el: HTMLElement) {}
-
-  private makeMovable(
+  public makeMovable(
     parentElement: HTMLElement,
     movableElement: HTMLElement,
     options?: MoveableOptions
@@ -289,18 +203,11 @@ export class CustomMovableElementService {
 
     /* draggable */
     moveable
-      .on('click', ({ target }) => {
-        const id = target!.getAttribute('id');
-
-        if (!id) return;
-
-        const element = this.getElement(id)!;
-        this._store.dispatch(
-          spaceSelectElementAction(element.customElementModel)
-        );
+      .on('click', ({ target, inputEvent }) => {
+        inputEvent.stopImmediatePropagation();
       })
-      .on('dragStart', ({ target, clientX, clientY }) => {
-        // console.log('onDragStart', target);
+      .on('dragStart', ({ target, clientX, clientY, inputEvent }) => {
+        inputEvent.stopImmediatePropagation();
       })
       .on(
         'drag',
@@ -317,6 +224,7 @@ export class CustomMovableElementService {
           dist,
           clientX,
           clientY,
+          inputEvent
         }) => {
           // target!.style.left = `${left}px`;
           // target!.style.top = `${top}px`;
@@ -324,14 +232,18 @@ export class CustomMovableElementService {
           const id = target!.getAttribute('id');
 
           if (id) {
-            this.addOrUpdateStyle({
-              id,
-              values: [
-                { name: 'left', value: `${left}px` },
-                { name: 'top', value: `${top}px` },
-              ],
-            });
+            this._store.dispatch(
+              addOrUpdateElementStyleAction({
+                elId: id,
+                styles: [
+                  { name: 'left', value: `${left}px` },
+                  { name: 'top', value: `${top}px` },
+                ],
+              })
+            );
           }
+
+          inputEvent.stopImmediatePropagation();
         }
       )
       .on('dragEnd', ({ target, isDrag, clientX, clientY }) => {
@@ -340,26 +252,48 @@ export class CustomMovableElementService {
 
     /* resizable */
     moveable
-      .on('resizeStart', ({ target, clientX, clientY }) => {
-        // console.log('onResizeStart', target);
+      .on('resizeStart', ({ inputEvent }) => {
+        // console.log('onResizeStart', e.target);
+
+        inputEvent.stopPropagation();
       })
       .on(
         'resize',
-        ({ target, width, height, dist, delta, clientX, clientY }) => {
+        ({
+          target,
+          width,
+          height,
+          dist,
+          delta,
+          clientX,
+          clientY,
+          inputEvent,
+        }) => {
           // console.log('onResize', target);
           // delta[0] && (target!.style.width = `${width}px`);
           // delta[1] && (target!.style.height = `${height}px`);
 
           const id = target!.getAttribute('id');
           if (id) {
-            this.addOrUpdateStyle({
-              id,
-              values: [
-                { name: 'width', value: `${width}px` },
-                { name: 'height', value: `${height}px` },
-              ],
-            });
+            this._store.dispatch(
+              addOrUpdateElementStyleAction({
+                elId: id,
+                styles: [
+                  { name: 'width', value: `${width}px` },
+                  { name: 'height', value: `${height}px` },
+                ],
+              })
+            );
+            // this.addOrUpdateStyle({
+            //   id,
+            //   values: [
+            //     { name: 'width', value: `${width}px` },
+            //     { name: 'height', value: `${height}px` },
+            //   ],
+            // });
           }
+
+          inputEvent.stopPropagation();
         }
       )
       .on('resizeEnd', ({ target, isDrag, clientX, clientY }) => {
@@ -387,10 +321,12 @@ export class CustomMovableElementService {
 
           const id = target!.getAttribute('id');
           if (id) {
-            this.addOrUpdateStyle({
-              id,
-              values: [{ name: 'transform', value: transform }],
-            });
+            this._store.dispatch(
+              addOrUpdateElementStyleAction({
+                elId: id,
+                styles: [{ name: 'transform', value: transform }],
+              })
+            );
           }
         }
       )
@@ -411,10 +347,12 @@ export class CustomMovableElementService {
 
           const id = target!.getAttribute('id');
           if (id) {
-            this.addOrUpdateStyle({
-              id,
-              values: [{ name: 'transform', value: transform }],
-            });
+            this._store.dispatch(
+              addOrUpdateElementStyleAction({
+                elId: id,
+                styles: [{ name: 'transform', value: transform }],
+              })
+            );
           }
         }
       )

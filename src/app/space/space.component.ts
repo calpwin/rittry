@@ -1,32 +1,38 @@
-import {
-  SpaceMedia,
-  changingSpaceMediaAction,
-  addCustomElementAction,
-  selectedElementSelector,
-} from './../rxjs/reducer';
+import { ElementFastActionComponent } from './../element-fast-action/element-fast-action.component';
+import { AppendTo, NewCustomElement, SpaceMedia } from './../rxjs/reducer';
 import {
   AfterViewInit,
   Component,
+  ComponentFactoryResolver,
   ElementRef,
+  Inject,
   OnInit,
   Renderer2,
   ViewChild,
+  ViewContainerRef,
 } from '@angular/core';
 import { createSelector, State, Store } from '@ngrx/store';
 import { SignalRService } from '../hub-connection';
-import { CustomMovableElement } from '../services/custom-movable-element';
-import { CustomMovableElementService } from '../services/custom-movable-element.service';
 
 import * as Split from 'split.js';
-import {
-  addOrUpdateElementStyle,
-  changeSpaceMediaSelector,
-  CustomElement,
-  CustomElementsState,
-  removeCustomElementAction,
-  uiElementEditorFeatureSelector,
-} from '../rxjs/reducer';
+import { CustomElement } from '../rxjs/reducer';
 import { KeyValuePairModel } from '../models/key-value-pair.model';
+import { CustomElementService } from '../services/custom-element.service';
+import { DOCUMENT } from '@angular/common';
+import { StartupService } from '../services/startup.service';
+import {
+  setSelectedElementAction,
+  startChangeSpaceMediaAction,
+  removeCustomElementAction,
+  addOrUpdateElementStyleAction,
+  addCustomElementAction,
+  groupElementsAction,
+} from '../rxjs/actions';
+import {
+  currentSpaceElementSelector,
+  selectedElementSelector,
+  changeGroupingElementsSelector,
+} from '../rxjs/selectors';
 
 @Component({
   selector: 'rittry-space',
@@ -39,24 +45,32 @@ export class SpaceComponent implements OnInit, AfterViewInit {
   @ViewChild('appendCustomElement')
   _appendCustomElement!: ElementRef<HTMLElement>;
 
+  private _currentSpaceElement: CustomElement | undefined;
+
   public selectedElement?: {
-    customMovableElement: CustomMovableElement;
-    closeBtnElement: HTMLElement;
+    element: { customEl: CustomElement; htmlEl: HTMLElement };
+    fastElementActionHtmlElement: HTMLElement;
     position: string;
   };
+
+  public groupingElements: CustomElement[] = [];
 
   constructor(
     private signalRService: SignalRService,
     private readonly _renderer: Renderer2,
-    private readonly _elementService: CustomMovableElementService,
-    private _store: Store<any>
+    private readonly _elementService: CustomElementService,
+    private readonly _startupService: StartupService,
+    private _store: Store<any>,
+    @Inject(DOCUMENT) private _document: Document,
+    private readonly viewContainerRef: ViewContainerRef,
+    private readonly componentFactoryResolver: ComponentFactoryResolver
   ) {
-    _elementService.initialize();
+    _startupService.bindApplicationEvents();
   }
 
   ngOnInit(): void {
-    this.signalRService.startConnection();
-    this.signalRService.addTransferChartDataListener();
+    // this.signalRService.startConnection();
+    // this.signalRService.addTransferChartDataListener();
   }
 
   ngAfterViewInit(): void {
@@ -81,17 +95,23 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     // );
 
     this._renderer.listen(this._mainSpace.nativeElement, 'click', () => {
-      this.сhangeSelectedElement(undefined);
+      this._store.dispatch(setSelectedElementAction({ elId: undefined }));
     });
 
-    this._store
-      .select(selectedElementSelector)
-      .subscribe(selectedEl => {
-        this.сhangeSelectedElement(selectedEl);
-      });
+    this._store.select(currentSpaceElementSelector).subscribe((spaceEl) => {
+      this._currentSpaceElement = spaceEl;
+    });
+
+    this._store.select(selectedElementSelector).subscribe((selectedEl) => {
+      this.сhangeSelectedElement(selectedEl);
+    });
+
+    this._store.select(changeGroupingElementsSelector).subscribe((els) => {
+      this.groupingElements = els;
+    });
 
     this._store.dispatch(
-      changingSpaceMediaAction({ media: SpaceMedia[SpaceMedia.Desktop] })
+      startChangeSpaceMediaAction({ media: SpaceMedia[SpaceMedia.Desktop] })
     );
   }
 
@@ -235,20 +255,17 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     }
 
     this._store.dispatch(
-      changingSpaceMediaAction({
+      startChangeSpaceMediaAction({
         media: spaceMedia,
       })
     );
-    // this._elementService.getAllElements().forEach((el) => {
-    //   el.movable?.updateRect();
-    // });
   }
 
   private сhangeSelectedElement(selectedEl: CustomElement | undefined) {
     if (this.selectedElement) {
       this._renderer.removeChild(
-        this.selectedElement.customMovableElement.movableElement,
-        this.selectedElement.closeBtnElement
+        this.selectedElement.element.htmlEl,
+        this.selectedElement.fastElementActionHtmlElement
       );
     }
 
@@ -260,27 +277,43 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     const element = this._elementService.getElement(selectedEl.id);
     if (!element) return;
 
-    const closeBtnElement = this._renderer.createElement('div') as HTMLElement;
-    this._renderer.addClass(closeBtnElement, 'close-icon');
-    this._renderer.listen(closeBtnElement, 'click', (event) => {
-      this._store.dispatch(
-        removeCustomElementAction({
-          element: element.customElementModel,
-          fromStorage: true,
-        })
+    const elementFastActionComponentFactory =
+      this.componentFactoryResolver.resolveComponentFactory(
+        ElementFastActionComponent
       );
-    });
+    const elementFastActionComponent = this.viewContainerRef.createComponent(
+      elementFastActionComponentFactory
+    );
 
-    this._renderer.appendChild(element.movableElement, closeBtnElement);
+    // const closeBtnElement = this._renderer.createElement('div') as HTMLElement;
+    // this._renderer.addClass(closeBtnElement, 'element-fast-action-wrapper');
+    // this._renderer.listen(closeBtnElement, 'click', (event) => {
+    //   this._store.dispatch(
+    //     removeCustomElementAction({
+    //       element: element.customEl,
+    //       fromStorage: true,
+    //     })
+    //   );
+    // });
 
-    element.setCloseBtnElement(closeBtnElement);
+    elementFastActionComponent.instance.groupRootEl = element.customEl;
+    elementFastActionComponent.instance.currentSpaceEl =
+      this._currentSpaceElement;
 
-    const elPosition = element.customElementModel.styles.find(
+    const htmlEl = this._document.getElementById(selectedEl.id) as HTMLElement;
+
+    this._renderer.appendChild(
+      htmlEl,
+      elementFastActionComponent.location.nativeElement
+    );
+
+    const elPosition = element.customEl.styles.find(
       (x) => x.name === 'position'
     );
     this.selectedElement = {
-      customMovableElement: element,
-      closeBtnElement,
+      element: { customEl: element.customEl, htmlEl: element.htmlEl },
+      fastElementActionHtmlElement:
+        elementFastActionComponent.location.nativeElement,
       position: elPosition?.value ?? 'relative',
     };
   }
@@ -289,14 +322,13 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     if (!this.selectedElement) return;
 
     const newPosition =
-      this.selectedElement.customMovableElement.movableElement.style
-        .position === 'absolute'
+      this.selectedElement.element.htmlEl.style.position === 'absolute'
         ? 'relative'
         : 'absolute';
 
     this._store.dispatch(
-      addOrUpdateElementStyle({
-        elId: this.selectedElement.customMovableElement.customElementModel.id,
+      addOrUpdateElementStyleAction({
+        elId: this.selectedElement.element.customEl.id,
         styles: [new KeyValuePairModel('position', newPosition)],
       })
     );
@@ -304,15 +336,63 @@ export class SpaceComponent implements OnInit, AfterViewInit {
     this.selectedElement.position = newPosition;
   }
 
+  public setParentElementJustifyContent(direction: string) {
+    if (!this._currentSpaceElement) return;
+
+    switch (direction) {
+      case 'left':
+        this._store.dispatch(
+          addOrUpdateElementStyleAction({
+            elId: this._currentSpaceElement.id,
+            styles: [
+              { name: 'justify-content', value: 'flex-start' },
+              { name: 'display', value: 'flex' },
+            ],
+          })
+        );
+        break;
+      case 'vertical':
+        this._store.dispatch(
+          addOrUpdateElementStyleAction({
+            elId: this._currentSpaceElement.id,
+            styles: [
+              { name: 'justify-content', value: 'space-around' },
+              { name: 'display', value: 'flex' },
+            ],
+          })
+        );
+        break;
+      case 'right':
+        this._store.dispatch(
+          addOrUpdateElementStyleAction({
+            elId: this._currentSpaceElement.id,
+            styles: [
+              { name: 'justify-content', value: 'flex-end' },
+              { name: 'display', value: 'flex' },
+            ],
+          })
+        );
+        break;
+    }
+  }
+
   public addElement() {
     this._store.dispatch(
       addCustomElementAction(
-        new CustomElement(
+        new NewCustomElement(
           Date.now().toString(),
           'rittry-element',
-          '6945ef-ff6b-4671-bc5c-a4371a7743f6'
+          [
+            { name: 'background-color', value: 'red' },
+            { name: 'width', value: '100px' },
+            { name: 'height', value: '50px' }
+          ]
         )
       )
     );
+  }
+
+  public toggleGroupingElements() {
+    this._store.dispatch(groupElementsAction());
   }
 }

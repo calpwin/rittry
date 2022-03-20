@@ -1,8 +1,8 @@
-import { CustomMovableElementService } from './../services/custom-movable-element.service';
 import { Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { removeCustomElementAction } from './reducer';
 import { map } from 'rxjs/operators';
+import { CustomElementService } from '../services/custom-element.service';
+import { removeCustomElementAction } from './actions';
 
 @Injectable()
 export class RemoveCustomElementEffects {
@@ -11,13 +11,13 @@ export class RemoveCustomElementEffects {
       this.actions$.pipe(
         ofType(removeCustomElementAction),
         map(({ element, fromStorage }) => {
-          const movableEl = this._customMovableElementService.getElement(
+          const movableEl = this._customElementService.getElement(
             element.id
           );
 
           if (!movableEl) return element;
 
-          this._customMovableElementService.removeElement(movableEl);
+          this._customElementService.removeElement(movableEl.customEl);
 
           return element;
         })
@@ -27,6 +27,6 @@ export class RemoveCustomElementEffects {
 
   constructor(
     private readonly actions$: Actions,
-    private readonly _customMovableElementService: CustomMovableElementService
+    private readonly _customElementService: CustomElementService
   ) {}
 }

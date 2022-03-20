@@ -79,6 +79,7 @@
           class="btn"
           color="primary"
           aria-label="To center"
+          (click)="setParentElementJustifyContent('left')"
         >
           <mat-icon>border_left</mat-icon>
         </button>
@@ -88,6 +89,7 @@
           class="btn"
           color="primary"
           aria-label="To center"
+          (click)="setParentElementJustifyContent('horizontal')"
         >
           <mat-icon>border_horizontal</mat-icon>
         </button>
@@ -97,6 +99,7 @@
           class="btn"
           color="primary"
           aria-label="To absolute"
+          (click)="setParentElementJustifyContent('vertical')"
         >
           <mat-icon>border_vertical</mat-icon>
         </button>
@@ -106,6 +109,7 @@
           class="btn"
           color="primary"
           aria-label="To absolute"
+          (click)="setParentElementJustifyContent('right')"
         >
           <mat-icon>border_right</mat-icon>
         </button>
@@ -119,6 +123,16 @@
           aria-label="To absolute"
           [disabled]="selectedElement === undefined"
           (click)="changeSelectedElPosition()"
+        >
+          <mat-icon>border_clear</mat-icon>
+        </button>
+
+        <button
+          mat-icon-button
+          class="btn"
+          aria-label="Group elements"
+          [disabled]="groupingElements.length <= 1"
+          (click)="toggleGroupingElements()"
         >
           <mat-icon>border_clear</mat-icon>
         </button>

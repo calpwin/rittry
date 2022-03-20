@@ -28,6 +28,7 @@
     "moveable": "^0.26.0",
     "rxjs": "~6.6.0",
     "scss-reset": "^1.2.2",
+    "selecto": "^1.13.0",
     "split.js": "^1.6.4",
     "tslib": "^2.3.0",
     "zone.js": "~0.11.4"

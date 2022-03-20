@@ -1,4 +1,7 @@
+// @use '@angular/material' as mat;
 @import 'scss-reset/_reset.scss';
+
+// @include mat.core();
 
 html, body {
   height: 100%;
@@ -10,4 +13,23 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
 .mat-icon {
   font-size: 20px;
+}
+
+.custom-element {
+
+  &.selected {
+    border:  3px dashed #39465f73 !important;
+  }
+
+  &.editable-group {
+    border: 2px dashed #39465f73 !important;
+  }
+}
+
+
+.moveable-control {
+  --moveable-color: #7887d1;
+
+  width: 10px !important;
+  height: 10px !important;
 }

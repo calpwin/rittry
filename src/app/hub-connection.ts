@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@aspnet/signalr'; // or from "@microsoft/signalr" if you are using a new library
 import { Store } from '@ngrx/store';
-import { addCustomElementAction, CustomElement } from './rxjs/reducer';
+import { addCustomElementAction } from './rxjs/actions';
+import { CustomElement } from './rxjs/reducer';
 
 @Injectable({
   providedIn: 'root',

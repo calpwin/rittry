@@ -1,7 +1,5 @@
 import {
-  changeSpaceMediaSelector,
   CustomElement,
-  CustomElementsState,
   SpaceMedia,
 } from './../rxjs/reducer';
 import { Injectable } from '@angular/core';
@@ -15,17 +13,19 @@ export class LocalStorageService {
 
   constructor() {}
 
-  public saveSpaceModel(models: CustomElement[], media: string) {
+  public saveSpaceModel(elements: CustomElement[], media: string) {
     let spaceModel = this.getSpaceModel();
 
-    models = models.filter((x) => x.appendTo !== '<root/>');
+    // elements = elements.filter((x) => x.appendTo !== '<root/>');
+
+    elements = this.arrangeElements(elements);
 
     if (!spaceModel)
       spaceModel = new SpaceModel({
         [this.getSpaceMediaSize(media)]: [],
       });
 
-    spaceModel.spaces[this.getSpaceMediaSize(media)] = models;
+    spaceModel.spaces[this.getSpaceMediaSize(media)] = elements;
 
     localStorage.setItem(this._localStorageKey, JSON.stringify(spaceModel));
   }
@@ -83,5 +83,22 @@ export class LocalStorageService {
       default:
         return media;
     }
+  }
+
+  private arrangeElements(elements: CustomElement[]): CustomElement[] {
+    const els: CustomElement[] = [];
+
+    for (const el of elements) {
+      const parentEl = els.find((x) => x.id === el.appendTo);
+
+      if (parentEl) {
+        const index = els.indexOf(parentEl);
+        els.splice(index + 1, 0, el);
+      } else {
+        els.splice(0, 0, el);
+      }
+    }
+
+    return els;
   }
 }

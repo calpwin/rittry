@@ -18,11 +18,21 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { LayoutComponent } from './component/layout/layout.component';
 import { EffectsModule } from '@ngrx/effects';
 import { RemoveCustomElementEffects } from './rxjs/remove-element.effects';
-import { ChangedSpaceMediaEffects } from './rxjs/changed-space-media.effects';
-import { ChangingSpaceMediaEffects } from './rxjs/changing-space-media.effect';
+import { SpaceMediaChangedEffects } from './rxjs/space-media-changed.effects';
+import { StartChangeSpaceMediaEffects } from './rxjs/start-change-space-media.effect';
+import { CurrentSpaceElementChangedEffects } from './rxjs/current-space-element-changed.effects';
+import { GroupElementsEffects } from './rxhs.effects/group-elements.effects';
+import { AddCustomElementOrStyleEffects } from './rxjs/add-custom-element-or-style.effects';
+import { ElementFastActionComponent } from './element-fast-action/element-fast-action.component';
 
 @NgModule({
-  declarations: [AppComponent, ElementComponent, SpaceComponent, LayoutComponent],
+  declarations: [
+    AppComponent,
+    ElementComponent,
+    SpaceComponent,
+    LayoutComponent,
+    ElementFastActionComponent,
+  ],
   imports: [
     BrowserModule,
     AppRoutingModule,
@@ -37,7 +47,14 @@ import { ChangingSpaceMediaEffects } from './rxjs/changing-space-media.effect';
       })
     ),
     BrowserAnimationsModule,
-    EffectsModule.forRoot([RemoveCustomElementEffects, ChangingSpaceMediaEffects, ChangedSpaceMediaEffects]),
+    EffectsModule.forRoot([
+      RemoveCustomElementEffects,
+      StartChangeSpaceMediaEffects,
+      SpaceMediaChangedEffects,
+      CurrentSpaceElementChangedEffects,
+      GroupElementsEffects,
+      AddCustomElementOrStyleEffects
+    ]),
   ],
   providers: [],
   bootstrap: [AppComponent],
@@ -45,7 +62,7 @@ import { ChangingSpaceMediaEffects } from './rxjs/changing-space-media.effect';
 export class AppModule {
   constructor(injector: Injector) {
     const testAngEl = createCustomElement(ElementComponent, { injector });
-    customElements.define('rtl-element', testAngEl);
+    customElements.define('rittry-element', testAngEl);
 
     const layoutEl = createCustomElement(LayoutComponent, { injector });
     customElements.define('rittry-layout', layoutEl);
