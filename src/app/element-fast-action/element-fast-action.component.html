@@ -1,0 +1,18 @@
+<div class="element-fast-action-wrapper">
+  <div class="icon close-icon" (click)="closeClick()"></div>
+  <div
+    class="icon ungroup-icon"
+    (click)="ungroupClick()"
+    [style.display]="groupRootEl?.isElGroupRoot ? 'block' : 'none'"
+  ></div>
+  <div
+    class="icon into-group-icon"
+    (click)="intoGroupClick()"
+    [style.display]="groupRootEl?.isElGroupRoot && groupRootEl?.id !== currentSpaceEl?.id ? 'block' : 'none'"
+  ></div>
+  <div
+    class="icon out-from-group-icon"
+    (click)="outFromGroupClick()"
+    [style.display]="groupRootEl?.id === currentSpaceEl?.id ? 'block' : 'none'"
+  ></div>
+</div>

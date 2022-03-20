@@ -3,26 +3,29 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { switchMap, withLatestFrom } from 'rxjs/operators';
 import { LocalStorageService } from '../services/local-storage.service';
+import { startChangeSpaceMediaAction, rebuildSpaceAction, removeCustomElementAction, spaceMediaChangedAction, unGroupElementsAction, unGroupElementsFinishedAction } from './actions';
 import {
-  changedSpaceMediaAction,
-  changeSpaceMediaSelector,
-  changingSpaceMediaAction,
   CustomElementsState,
-  elementsSelector,
-  removeCustomElementAction,
   SpaceMedia,
 } from './reducer';
+import { currentSpaceMediaSelector, elementsSelector } from './selectors';
 
 @Injectable()
-export class ChangingSpaceMediaEffects {
+export class StartChangeSpaceMediaEffects {
   loadPhotos$ = createEffect(() =>
     this.actions$.pipe(
-      ofType(changingSpaceMediaAction),
+      ofType(startChangeSpaceMediaAction, rebuildSpaceAction, unGroupElementsFinishedAction),
       withLatestFrom(
         this.store$.select(elementsSelector),
-        this.store$.select(changeSpaceMediaSelector)
+        this.store$.select(currentSpaceMediaSelector)
       ),
-      switchMap(([{ media }, els, currentMedia]) => {
+      switchMap(([action, els, currentMedia]) => {
+        let media = currentMedia;
+
+        if (action.type === startChangeSpaceMediaAction.type) {
+          media = action.media;
+        }
+
         if (currentMedia !== SpaceMedia[SpaceMedia.None])
           this._localStorageService.saveSpaceModel(els, currentMedia);
 
@@ -30,7 +33,7 @@ export class ChangingSpaceMediaEffects {
           ...els.map((y) =>
             removeCustomElementAction({ element: y, fromStorage: false })
           ),
-          changedSpaceMediaAction({ media }),
+          spaceMediaChangedAction({ media }),
         ];
       })
     )
